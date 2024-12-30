@@ -50,6 +50,55 @@
             box-shadow: 0 0 10px rgba(139, 69, 19, 0.5);
             display: none;
         }
+        #gameControls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: rgba(44, 24, 16, 0.9);
+            padding: 15px;
+            border-radius: 10px;
+            border: 2px solid #8b4513;
+            box-shadow: 0 0 10px rgba(139, 69, 19, 0.5);
+            display: none;
+        }
+        button {
+            background-color: #8b4513;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #654321;
+        }
+        #mobileControls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: none;
+            text-align: center;
+        }
+        #mobileControls button {
+            width: 60px;
+            height: 60px;
+            margin: 5px;
+            font-size: 24px;
+            border-radius: 30px;
+            background-color: rgba(139, 69, 19, 0.8);
+        }
+        #volumeControl {
+            width: 100px;
+            margin: 10px 0;
+        }
+        @media (max-width: 768px) {
+            #mobileControls {
+                display: block;
+            }
+        }
     </style>
 </head>
 <body>
@@ -66,12 +115,69 @@
         <p>空格键：发射火球</p>
         <p>收集钥匙开启门，到达终点获胜！</p>
     </div>
+    <div id="gameControls">
+        <button id="fullscreenButton">全屏</button>
+        <br>
+        <label for="volumeControl">音量：</label>
+        <input type="range" id="volumeControl" min="0" max="100" value="100">
+    </div>
+    <div id="mobileControls">
+        <button id="upButton">↑</button><br>
+        <button id="leftButton">←</button>
+        <button id="spaceButton">●</button>
+        <button id="rightButton">→</button><br>
+        <button id="downButton">↓</button>
+    </div>
     <script>
+        // 全屏控制
+        document.getElementById('fullscreenButton').addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        });
+
+        // 音量控制
+        const volumeControl = document.getElementById('volumeControl');
+        volumeControl.addEventListener('input', (e) => {
+            const volume = e.target.value / 100;
+            // 通过 Pyodide 设置音量
+            if (window.pyodide) {
+                window.pyodide.runPython(`
+                    for sound in pygame.mixer.Sound.all_sounds():
+                        sound.set_volume(${volume})
+                `);
+            }
+        });
+
+        // 移动端控制
+        const mobileButtons = {
+            'upButton': 'ArrowUp',
+            'downButton': 'ArrowDown',
+            'leftButton': 'ArrowLeft',
+            'rightButton': 'ArrowRight',
+            'spaceButton': ' '
+        };
+
+        for (const [buttonId, key] of Object.entries(mobileButtons)) {
+            const button = document.getElementById(buttonId);
+            button.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                window.dispatchEvent(new KeyboardEvent('keydown', { key }));
+            });
+            button.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                window.dispatchEvent(new KeyboardEvent('keyup', { key }));
+            });
+        }
+
         async function main() {
             let loadingStatus = document.getElementById('loadingStatus');
             
             loadingStatus.textContent = '正在加载 Pyodide...';
             let pyodide = await loadPyodide();
+            window.pyodide = pyodide;
             
             loadingStatus.textContent = '正在加载 Pygame...';
             await pyodide.loadPackage('pygame');
@@ -86,6 +192,7 @@
             document.getElementById('loading').style.display = 'none';
             document.getElementById('gameCanvas').style.display = 'block';
             document.getElementById('controls').style.display = 'block';
+            document.getElementById('gameControls').style.display = 'block';
         }
         
         main().catch((error) => {
